@@ -1,37 +1,38 @@
-# Flappy Bird 🐦🕹️
+# FlappyVerse 🐦🕹️
 
-A classic and addictive endless runner game built with JavaScript. Tap to make the bird fly ⬆️ and navigate through challenging pipes 🧱. Aim for the highest score 🏆 and try to beat your best! ✨
+Welcome to **FlappyVerse**, an exciting and addictive endless runner game built with JavaScript. Tap to make the bird soar through the skies ⬆️, dodge tricky pipes 🧱, and aim for the highest score 🏆. With unique features like a day/night cycle, shields, and more, **FlappyVerse** takes the classic Flappy Bird to a whole new level! ✨
 
-**Features:**
+## Features:
 
-* Simple and engaging gameplay.
-* Score tracking 🔢 and best score persistence.
-* Responsive design for various screen sizes.
-* Pause/Resume functionality ⏸️▶️.
-* Automatic shield activation every 10 points🛡️.
-* Background changes 🌃🌅.
-* Sound effects 🔊.
+- Simple and engaging gameplay.
+- Score tracking 🔢 and best score persistence.
+- Responsive design for various screen sizes.
+- Pause/Resume functionality ⏸️▶️.
+- Automatic shield activation every 10 points 🛡️.
+- Day/Night background cycle 🌃🌅.
+- Sound effects 🔊.
 
-**How to Play:**
+## How to Play:
 
-* Tap the screen, press Spacebar, Arrow Up, or 'X' to make the bird flap.
-* Avoid colliding with the pipes.
-* Each successful passage between pipes increases your score.
+- Tap the screen, press Spacebar, Arrow Up, or 'X' to make the bird flap.
+- Avoid colliding with the pipes.
+- Each successful passage between pipes increases your score.
 
-**Controls:**
+## Controls:
 
-* **Tap / Click / Touch:** Fly
-* **Spacebar / Arrow Up / X:** Fly
-* **P / Pause Button:** Pause/Resume
+- **Tap / Click / Touch:** Fly
+- **Spacebar / Arrow Up / X:** Fly
+- **P / Pause Button:** Pause/Resume
 
-**Technologies Used:**
+## Technologies Used:
 
-* HTML
-* CSS
-* JavaScript
+- HTML
+- CSS
+- JavaScript
 
-**Made by:** Prajjwal Maharjan 👨‍💻
+## Made by:
+**Prajjwal Maharjan** 👨‍💻
 
-**Contributing:**
+## Contributing:
 
 Feel free to contribute to the project by submitting pull requests for bug fixes, new features, or improvements!

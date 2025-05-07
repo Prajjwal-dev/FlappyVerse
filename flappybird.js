@@ -103,7 +103,7 @@ function showInstructions(callback) {
     context.font = "20px Courier New";
 
     const lines = [
-        "Flappy Bird Instructions:",
+        "FlappyVerse Instructions:",
         "- Press Space / Click / Tap",
         "  to Fly",
         "- Avoid Pipes to Score",
