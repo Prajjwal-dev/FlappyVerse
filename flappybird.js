@@ -25,9 +25,18 @@ let pipeX = boardWidth;
 let pipeY = 0;
 
 let topPipeImg, bottomPipeImg, shieldImg;
-let velocityX = -2;
-let velocityY = 0;
-let gravity = 0.4;
+
+// --- clean implementation (time-based physics + difficulty presets) ---
+let velocityX = -100; // px/s (negative = left)
+let velocityY = 0;    // bird vertical velocity px/s
+let gravity = 1000;   // px/s^2
+let jumpVelocity = -300; // px/s (upwards negative)
+let maxFallSpeed = 900; // px/s
+let pipeSpawnMs = 1700; // pipe spawn interval in ms
+
+// runtime timing
+let lastTime = null;
+let pipeInterval = null;
 
 let gameOver = false;
 let score = 0;
@@ -44,7 +53,7 @@ let bgScoreThreshold = 5;
 
 let pauseButton, playAgainButton;
 
-// Music elements
+// sounds
 let flapSound = new Audio('./sfx_wing.wav');
 let scoreSound = new Audio('./sfx_point.wav');
 let hitSound = new Audio('./sfx_hit.wav');
@@ -70,32 +79,78 @@ window.onload = function () {
 
     pauseButton = document.getElementById("pauseButton");
     playAgainButton = document.getElementById("playAgainButton");
+    // ensure pause button is always visible in the UI layer
+    if (pauseButton) pauseButton.style.display = 'block';
 
-    pauseButton.addEventListener("click", togglePause);
-    playAgainButton.addEventListener("click", () => {
+    // wire UI and prevent clicks from bubbling into the instruction overlay
+    if (pauseButton) {
+        pauseButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            togglePause();
+        });
+    }
+    playAgainButton.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         playAgainButton.style.display = "none";
+        lastTime = null;
         showInstructions(() => {
             resetGame();
         });
     });
 
+    // difficulty selector removed; game will run in Hard mode by default
+
+    // input
     document.addEventListener("keydown", handleInput);
     document.addEventListener("click", handleClick);
     document.addEventListener("touchstart", handleClick);
 
+    // set default preset to Hard and start
+    applyPreset('hard');
     setBackground();
     showInstructions(() => {
         paused = false;
         pauseButton.style.visibility = "visible";
         requestAnimationFrame(update);
-        setInterval(placePipes, 1500);
+        if (pipeInterval) clearInterval(pipeInterval);
+        pipeInterval = setInterval(placePipes, pipeSpawnMs);
     });
 };
 
+function applyPreset(name) {
+    if (name === 'easy') {
+        gravity = 900;
+        jumpVelocity = -300;
+        velocityX = -100;
+        pipeSpawnMs = 1700;
+        maxFallSpeed = 700;
+    } else if (name === 'normal') {
+        gravity = 1400;
+        jumpVelocity = -360;
+        velocityX = -120;
+        pipeSpawnMs = 1500;
+        maxFallSpeed = 900;
+    } else if (name === 'hard') {
+        gravity = 1800;
+        jumpVelocity = -420;
+        velocityX = -140;
+        pipeSpawnMs = 1300;
+        maxFallSpeed = 1100;
+    }
+}
+
+let instructionsCallback = null;
+let instructionsStartHandler = null;
+
 function showInstructions(callback) {
     showingInstructions = true;
+    instructionsCallback = callback || null;
     pauseButton.style.display = "block";
     pauseButton.style.visibility = "hidden";
+
+    // difficulty UI removed; nothing to show here
 
     context.fillStyle = "rgba(0, 0, 0, 0.7)";
     context.fillRect(0, 0, board.width, board.height);
@@ -105,12 +160,12 @@ function showInstructions(callback) {
     const lines = [
         "FlappyVerse Instructions:",
         "- Press Space / Click / Tap",
-        "  to Fly",
+        "  to Fly",
         "- Avoid Pipes to Score",
         "- Press 'P' or Button",
-        "  to Pause/Resume",
+        "  to Pause/Resume",
         "- Shield auto activates",
-        "  every 10 pts",
+        "  every 10 pts",
         "Click / Touch to Start"
     ];
 
@@ -118,14 +173,22 @@ function showInstructions(callback) {
         context.fillText(lines[i], 20, 100 + i * 40);
     }
 
-    function startAfterInstruction() {
-        document.removeEventListener("click", startAfterInstruction);
+    instructionsStartHandler = function startAfterInstruction(e) {
+        // stop both click and touchstart from staying active
+        document.removeEventListener("click", instructionsStartHandler);
+        document.removeEventListener("touchstart", instructionsStartHandler);
         pauseButton.style.visibility = "visible";
         showingInstructions = false;
-        callback();
-    }
+        if (typeof instructionsCallback === 'function') instructionsCallback();
+        instructionsStartHandler = null;
+    };
 
-    document.addEventListener("click", startAfterInstruction);
+    document.addEventListener("click", instructionsStartHandler);
+    document.addEventListener("touchstart", instructionsStartHandler);
+}
+
+function startFromInstructions() {
+    // (removed) startFromInstructions was used by the difficulty selector.
 }
 
 function setBackground() {
@@ -139,8 +202,9 @@ function changeBackground() {
 
 function handleInput(e) {
     if (showingInstructions) return;
-
     if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyX") && !paused && !gameOver) {
+        if (e.repeat) return;
+        e.preventDefault();
         moveBird();
     } else if (e.code === "KeyP") {
         togglePause();
@@ -154,33 +218,56 @@ function handleClick(e) {
 
 function togglePause() {
     if (gameOver) return;
-
+    // If currently paused, start a 3..2..1 countdown then resume
     if (paused) {
+        // avoid starting multiple countdowns
+        if (countdownInterval !== null) return;
         pauseButton.innerText = "Pause";
         countdown = 3;
+        // draw initial frame with the number immediately
+        context.clearRect(0, 0, board.width, board.height);
+        drawScene();
+        context.fillStyle = "white";
+        context.font = "60px sans-serif";
+        context.fillText(countdown, boardWidth / 2 - 15, boardHeight / 2);
+        countdown--;
+
         countdownInterval = setInterval(() => {
             context.clearRect(0, 0, board.width, board.height);
             drawScene();
             context.fillStyle = "white";
             context.font = "60px sans-serif";
 
-            if (countdown === 0) {
+            if (countdown <= 0) {
                 clearInterval(countdownInterval);
+                countdownInterval = null;
                 paused = false;
+                // kickoff the update loop so timing resumes cleanly
+                lastTime = null;
+                requestAnimationFrame(update);
             } else {
                 context.fillText(countdown, boardWidth / 2 - 15, boardHeight / 2);
                 countdown--;
             }
         }, 1000);
     } else {
+        // Pause the game
         paused = true;
         pauseButton.innerText = "Resume";
+        // if a countdown was pending, cancel it
+        if (countdownInterval !== null) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
     }
 }
 
-function update() {
+function update(timestamp) {
     requestAnimationFrame(update);
+
     if (paused || gameOver) {
+        // keep lastTime in sync so dt is reasonable when resuming
+        lastTime = timestamp;
         if (paused && !gameOver && countdown === 0 && countdownInterval === null && !showingInstructions) {
             context.fillStyle = "white";
             context.font = "50px sans-serif";
@@ -189,10 +276,17 @@ function update() {
         return;
     }
 
+    if (!lastTime) lastTime = timestamp;
+    let dt = (timestamp - lastTime) / 1000; // seconds
+    if (dt > 0.1) dt = 0.1; // clamp
+    lastTime = timestamp;
+
     context.clearRect(0, 0, board.width, board.height);
 
-    velocityY += gravity;
-    bird.y = Math.max(bird.y + velocityY, 0);
+    // physics
+    velocityY += gravity * dt;
+    if (velocityY > maxFallSpeed) velocityY = maxFallSpeed;
+    bird.y = Math.max(bird.y + velocityY * dt, 0);
     context.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
 
     if (bird.y > board.height) {
@@ -201,7 +295,7 @@ function update() {
 
     for (let i = 0; i < pipeArray.length; i++) {
         let pipe = pipeArray[i];
-        pipe.x += velocityX;
+        pipe.x += velocityX * dt;
         context.drawImage(pipe.img, pipe.x, pipe.y, pipe.width, pipe.height);
 
         if (!pipe.passed && bird.x > pipe.x + pipe.width) {
@@ -287,7 +381,8 @@ function placePipes() {
 }
 
 function moveBird() {
-    velocityY = -6;
+    if (showingInstructions || paused || gameOver) return;
+    velocityY = jumpVelocity;
     flapSound.play();
 }
 
@@ -318,8 +413,12 @@ function resetGame() {
     shieldCount = 0;
     pauseButton.innerText = "Pause";
     playAgainButton.style.display = "none";
+    lastTime = null;
+    if (pipeInterval) clearInterval(pipeInterval);
     setBackground();
     showInstructions(() => {
         paused = false;
+        if (pipeInterval) clearInterval(pipeInterval);
+        pipeInterval = setInterval(placePipes, pipeSpawnMs);
     });
 }
