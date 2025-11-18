@@ -95,8 +95,19 @@ window.onload = function () {
         e.preventDefault();
         playAgainButton.style.display = "none";
         lastTime = null;
+        // Reset state immediately, then show instructions which will start the game
+        // when the player clicks/taps the overlay.
+        resetGame();
         showInstructions(() => {
-            resetGame();
+            // start gameplay after instructions
+            paused = false;
+            pauseButton.style.visibility = "visible";
+            // ensure pipe spawn interval is restarted with current pipeSpawnMs
+            if (pipeInterval) clearInterval(pipeInterval);
+            pipeInterval = setInterval(placePipes, pipeSpawnMs);
+            // reset timing so update's dt doesn't spike
+            lastTime = null;
+            requestAnimationFrame(update);
         });
     });
 
@@ -414,11 +425,15 @@ function resetGame() {
     pauseButton.innerText = "Pause";
     playAgainButton.style.display = "none";
     lastTime = null;
-    if (pipeInterval) clearInterval(pipeInterval);
+    // clear timers and intervals to ensure a clean reset
+    if (pipeInterval) {
+        clearInterval(pipeInterval);
+        pipeInterval = null;
+    }
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        countdown = 0;
+    }
     setBackground();
-    showInstructions(() => {
-        paused = false;
-        if (pipeInterval) clearInterval(pipeInterval);
-        pipeInterval = setInterval(placePipes, pipeSpawnMs);
-    });
 }
